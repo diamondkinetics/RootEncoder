@@ -23,6 +23,7 @@ import android.os.Build
 import android.util.Range
 import android.util.Size
 import android.view.MotionEvent
+import android.view.View
 import androidx.annotation.RequiresApi
 import com.pedro.encoder.input.video.Camera2ApiManager
 import com.pedro.encoder.input.video.CameraHelper
@@ -32,171 +33,171 @@ import com.pedro.encoder.input.video.facedetector.FaceDetectorCallback
  * Created by pedro on 11/1/24.
  */
 @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
-class Camera2Source(context: Context): VideoSource() {
+class Camera2Source(context: Context) : VideoSource() {
 
-  private val camera = Camera2ApiManager(context)
-  private var facing = CameraHelper.Facing.BACK
+    private val camera = Camera2ApiManager(context)
+    private var facing = CameraHelper.Facing.BACK
 
-  override fun create(width: Int, height: Int, fps: Int): Boolean {
-    this.width = width
-    this.height = height
-    this.fps = fps
-    val result = checkResolutionSupported(width, height)
-    if (!result) {
-      throw IllegalArgumentException("Unsupported resolution: ${width}x$height")
+    override fun create(width: Int, height: Int, fps: Int): Boolean {
+        this.width = width
+        this.height = height
+        this.fps = fps
+        val result = checkResolutionSupported(width, height)
+        if (!result) {
+            throw IllegalArgumentException("Unsupported resolution: ${width}x$height")
+        }
+        created = true
+        return true
     }
-    created = true
-    return true
-  }
 
-  override fun start(surfaceTexture: SurfaceTexture) {
-    this.surfaceTexture = surfaceTexture
-    if (!isRunning()) {
-      surfaceTexture.setDefaultBufferSize(width, height)
-      camera.prepareCamera(surfaceTexture, width, height, fps, facing)
-      camera.openCameraFacing(facing)
+    override fun start(surfaceTexture: SurfaceTexture) {
+        this.surfaceTexture = surfaceTexture
+        if (!isRunning()) {
+            surfaceTexture.setDefaultBufferSize(width, height)
+            camera.prepareCamera(surfaceTexture, width, height, fps, facing)
+            camera.openCameraFacing(facing)
+        }
     }
-  }
 
-  override fun stop() {
-    if (isRunning()) camera.closeCamera()
-  }
-
-  override fun release() {}
-
-  override fun isRunning(): Boolean = camera.isRunning
-
-  private fun checkResolutionSupported(width: Int, height: Int): Boolean {
-    if (width % 2 != 0 || height % 2 != 0) {
-      throw IllegalArgumentException("width and height values must be divisible by 2")
+    override fun stop() {
+        if (isRunning()) camera.closeCamera()
     }
-    val size = Size(width, height)
-    val resolutions = if (facing == CameraHelper.Facing.BACK) {
-      camera.cameraResolutionsBack
-    } else camera.cameraResolutionsFront
-    return if (camera.levelSupported == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY) {
-      //this is a wrapper of camera1 api. Only listed resolutions are supported
-      resolutions.contains(size)
-    } else {
-      val widthList = resolutions.map { size.width }
-      val heightList = resolutions.map { size.height }
-      val maxWidth = widthList.maxOrNull() ?: 0
-      val maxHeight = heightList.maxOrNull() ?: 0
-      val minWidth = widthList.minOrNull() ?: 0
-      val minHeight = heightList.minOrNull() ?: 0
-      size.width in minWidth..maxWidth && size.height in minHeight..maxHeight
+
+    override fun release() {}
+
+    override fun isRunning(): Boolean = camera.isRunning
+
+    private fun checkResolutionSupported(width: Int, height: Int): Boolean {
+        if (width % 2 != 0 || height % 2 != 0) {
+            throw IllegalArgumentException("width and height values must be divisible by 2")
+        }
+        val size = Size(width, height)
+        val resolutions = if (facing == CameraHelper.Facing.BACK) {
+            camera.cameraResolutionsBack
+        } else camera.cameraResolutionsFront
+        return if (camera.levelSupported == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY) {
+            //this is a wrapper of camera1 api. Only listed resolutions are supported
+            resolutions.contains(size)
+        } else {
+            val widthList = resolutions.map { size.width }
+            val heightList = resolutions.map { size.height }
+            val maxWidth = widthList.maxOrNull() ?: 0
+            val maxHeight = heightList.maxOrNull() ?: 0
+            val minWidth = widthList.minOrNull() ?: 0
+            val minHeight = heightList.minOrNull() ?: 0
+            size.width in minWidth..maxWidth && size.height in minHeight..maxHeight
+        }
     }
-  }
 
-  fun switchCamera() {
-    facing = if (facing == CameraHelper.Facing.BACK) {
-      CameraHelper.Facing.FRONT
-    } else {
-      CameraHelper.Facing.BACK
+    fun switchCamera() {
+        facing = if (facing == CameraHelper.Facing.BACK) {
+            CameraHelper.Facing.FRONT
+        } else {
+            CameraHelper.Facing.BACK
+        }
+        if (isRunning()) {
+            stop()
+            surfaceTexture?.let {
+                start(it)
+            }
+        }
     }
-    if (isRunning()) {
-      stop()
-      surfaceTexture?.let {
-        start(it)
-      }
+
+    fun getCameraFacing(): CameraHelper.Facing = facing
+
+    fun getCameraResolutions(facing: CameraHelper.Facing): List<Size> {
+        val resolutions = if (facing == CameraHelper.Facing.FRONT) {
+            camera.cameraResolutionsFront
+        } else {
+            camera.cameraResolutionsBack
+        }
+        return resolutions.toList()
     }
-  }
 
-  fun getCameraFacing(): CameraHelper.Facing = facing
-
-  fun getCameraResolutions(facing: CameraHelper.Facing): List<Size> {
-    val resolutions = if (facing == CameraHelper.Facing.FRONT) {
-      camera.cameraResolutionsFront
-    } else {
-      camera.cameraResolutionsBack
+    fun setExposure(level: Int) {
+        if (isRunning()) camera.exposure = level
     }
-    return resolutions.toList()
-  }
 
-  fun setExposure(level: Int) {
-    if (isRunning()) camera.exposure = level
-  }
-
-  fun getExposure(): Int {
-    return if (isRunning()) camera.exposure else 0
-  }
-
-  fun enableLantern() {
-    if (isRunning()) camera.enableLantern()
-  }
-
-  fun disableLantern() {
-    if (isRunning()) camera.disableLantern()
-  }
-
-  fun isLanternEnabled(): Boolean {
-    return if (isRunning()) camera.isLanternEnabled else false
-  }
-
-  fun enableAutoFocus() {
-    if (isRunning()) {
-      camera.enableAutoFocus()
+    fun getExposure(): Int {
+        return if (isRunning()) camera.exposure else 0
     }
-  }
 
-  fun disableAutoFocus() {
-    if (isRunning()) camera.disableAutoFocus()
-  }
+    fun enableLantern() {
+        if (isRunning()) camera.enableLantern()
+    }
 
-  fun isAutoFocusEnabled(): Boolean {
-    return if (isRunning()) camera.isAutoFocusEnabled else false
-  }
+    fun disableLantern() {
+        if (isRunning()) camera.disableLantern()
+    }
 
-  fun tapToFocus(event: MotionEvent) {
-    camera.tapToFocus(event)
-  }
+    fun isLanternEnabled(): Boolean {
+        return if (isRunning()) camera.isLanternEnabled else false
+    }
 
-  fun setZoom(event: MotionEvent) {
-    if (isRunning()) camera.setZoom(event)
-  }
+    fun enableAutoFocus() {
+        if (isRunning()) {
+            camera.enableAutoFocus()
+        }
+    }
 
-  fun setZoom(level: Float) {
-    if (isRunning()) camera.zoom = level
-  }
+    fun disableAutoFocus() {
+        if (isRunning()) camera.disableAutoFocus()
+    }
 
-  fun getZoomRange(): Range<Float> = camera.zoomRange
+    fun isAutoFocusEnabled(): Boolean {
+        return if (isRunning()) camera.isAutoFocusEnabled else false
+    }
 
-  fun getZoom(): Float = camera.zoom
+    fun tapToFocus(view: View, event: MotionEvent) {
+        camera.tapToFocus(view, event)
+    }
 
-  fun enableFaceDetection(callback: FaceDetectorCallback): Boolean {
-    return if (isRunning()) camera.enableFaceDetection(callback) else false
-  }
+    fun setZoom(event: MotionEvent) {
+        if (isRunning()) camera.setZoom(event)
+    }
 
-  fun disableFaceDetection() {
-    if (isRunning()) camera.disableFaceDetection()
-  }
+    fun setZoom(level: Float) {
+        if (isRunning()) camera.zoom = level
+    }
 
-  fun isFaceDetectionEnabled() = camera.isFaceDetectionEnabled
+    fun getZoomRange(): Range<Float> = camera.zoomRange
 
-  fun camerasAvailable(): Array<String>? = camera.camerasAvailable
+    fun getZoom(): Float = camera.zoom
 
-  fun openCameraId(id: String) {
-    if (isRunning()) stop()
-    camera.openCameraId(id)
-  }
+    fun enableFaceDetection(callback: FaceDetectorCallback): Boolean {
+        return if (isRunning()) camera.enableFaceDetection(callback) else false
+    }
 
-  fun enableOpticalVideoStabilization(): Boolean {
-    return if (isRunning()) camera.enableOpticalVideoStabilization() else false
-  }
+    fun disableFaceDetection() {
+        if (isRunning()) camera.disableFaceDetection()
+    }
 
-  fun disableOpticalVideoStabilization() {
-    if (isRunning()) camera.disableOpticalVideoStabilization()
-  }
+    fun isFaceDetectionEnabled() = camera.isFaceDetectionEnabled
 
-  fun isOpticalVideoStabilizationEnabled() = camera.isOpticalStabilizationEnabled
+    fun camerasAvailable(): Array<String>? = camera.camerasAvailable
 
-  fun enableVideoStabilization(): Boolean {
-    return if (isRunning()) camera.enableVideoStabilization() else false
-  }
+    fun openCameraId(id: String) {
+        if (isRunning()) stop()
+        camera.openCameraId(id)
+    }
 
-  fun disableVideoStabilization() {
-    if (isRunning()) camera.disableVideoStabilization()
-  }
+    fun enableOpticalVideoStabilization(): Boolean {
+        return if (isRunning()) camera.enableOpticalVideoStabilization() else false
+    }
 
-  fun isVideoStabilizationEnabled() = camera.isVideoStabilizationEnabled
+    fun disableOpticalVideoStabilization() {
+        if (isRunning()) camera.disableOpticalVideoStabilization()
+    }
+
+    fun isOpticalVideoStabilizationEnabled() = camera.isOpticalStabilizationEnabled
+
+    fun enableVideoStabilization(): Boolean {
+        return if (isRunning()) camera.enableVideoStabilization() else false
+    }
+
+    fun disableVideoStabilization() {
+        if (isRunning()) camera.disableVideoStabilization()
+    }
+
+    fun isVideoStabilizationEnabled() = camera.isVideoStabilizationEnabled
 }
