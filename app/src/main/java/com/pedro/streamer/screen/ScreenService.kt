@@ -28,6 +28,7 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.pedro.common.ConnectChecker
+import com.pedro.common.Throughput
 import com.pedro.library.generic.GenericStream
 import com.pedro.library.util.sources.audio.MicrophoneSource
 import com.pedro.library.util.sources.video.NoVideoSource
@@ -159,10 +160,14 @@ class ScreenService: Service(), ConnectChecker {
     callback?.onConnectionSuccess()
   }
 
-  override fun onNewBitrate(bitrate: Long) {
-    callback?.onNewBitrate(bitrate)
+  override fun onStreamingStats(
+    bitrate: Long,
+    bytesSent: Long,
+    bytesQueued: Long,
+    throughput: Throughput
+  ) {
+    callback?.onStreamingStats(bitrate, bytesSent, bytesQueued, throughput)
   }
-
   override fun onConnectionFailed(reason: String) {
     callback?.onConnectionFailed(reason)
   }

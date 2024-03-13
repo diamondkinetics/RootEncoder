@@ -162,7 +162,7 @@ class RtspSender(
       val bitrateTask = async {
         while (scope.isActive && running) {
           //bytes to bits
-          bitrateManager.calculateBitrate(bytesSend * 8)
+          bitrateManager.calculateBandwidth(bytesSend, 0)
           bytesSend = 0
           delay(timeMillis = 1000)
         }

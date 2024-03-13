@@ -25,6 +25,7 @@ import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.pedro.common.ConnectChecker
+import com.pedro.common.Throughput
 import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.encoder.input.video.CameraOpenException
 import com.pedro.library.base.recording.RecordController
@@ -147,8 +148,13 @@ class OldApiActivity : AppCompatActivity(), ConnectChecker, TextureView.SurfaceT
     bStream.setImageResource(R.drawable.stream_icon)
   }
 
-  override fun onNewBitrate(bitrate: Long) {}
-
+  override fun onStreamingStats(
+    bitrate: Long,
+    bytesSent: Long,
+    bytesQueued: Long,
+    throughput: Throughput
+  ) {
+  }
   override fun onDisconnect() {
     toast("Disconnected")
   }

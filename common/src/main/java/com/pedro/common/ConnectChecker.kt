@@ -16,6 +16,11 @@
 
 package com.pedro.common
 
+enum class Throughput {
+  Unknown,
+  Sufficient,
+  Insufficient
+}
 /**
  * Created by pedro on 21/08/23.
  */
@@ -23,7 +28,7 @@ interface ConnectChecker {
   fun onConnectionStarted(url: String)
   fun onConnectionSuccess()
   fun onConnectionFailed(reason: String)
-  fun onNewBitrate(bitrate: Long)
+  fun onStreamingStats(bitrate: Long, bytesSent: Long, bytesQueued:Long, throughput: Throughput)
   fun onDisconnect()
   fun onAuthError()
   fun onAuthSuccess()

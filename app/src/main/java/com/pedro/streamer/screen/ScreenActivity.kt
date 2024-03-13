@@ -25,6 +25,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import com.pedro.common.ConnectChecker
+import com.pedro.common.Throughput
 import com.pedro.streamer.R
 import com.pedro.streamer.utils.toast
 
@@ -125,7 +126,13 @@ class ScreenActivity : AppCompatActivity(), ConnectChecker {
     toast("Failed: $reason")
   }
 
-  override fun onNewBitrate(bitrate: Long) {}
+  override fun onStreamingStats(
+    bitrate: Long,
+    bytesSent: Long,
+    bytesQueued: Long,
+    throughput: Throughput
+  ) {
+  }
   override fun onDisconnect() {
     toast("Disconnected")
   }
