@@ -63,15 +63,15 @@ class BitrateManagerTest {
       val fakeValues = arrayOf(100L, 200L, 300L, 400L, 500L)
       var expectedResult = 0L
       fakeValues.forEach {
-        bitrateManager.calculateBitrate(it)
+        bitrateManager.calculateBandwidth(it)
         expectedResult += it
       }
       fakeTime += 1000
       val value = 100L
-      bitrateManager.calculateBitrate(value)
+      bitrateManager.calculateBandwidth(value)
       expectedResult += value
       val resultValue = argumentCaptor<Long>()
-      verify(connectChecker, times(1)).onNewBitrate(resultValue.capture())
+      verify(connectChecker, times(1)).onStreamingStats(resultValue.capture())
       val marginError = 20
       assertTrue(expectedResult - marginError <= resultValue.firstValue && resultValue.firstValue <= expectedResult + marginError)
     }

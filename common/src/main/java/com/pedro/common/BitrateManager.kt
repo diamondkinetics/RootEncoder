@@ -24,18 +24,54 @@ package com.pedro.common
  */
 open class BitrateManager(private val connectChecker: ConnectChecker) {
 
-  private var bitrate: Long = 0
-  private var timeStamp = TimeUtils.getCurrentTimeMillis()
+    private var byterate: Long = 0
+    private var timeStamp = TimeUtils.getCurrentTimeMillis()
+    private var queuedBytes: Long = 0
 
-  suspend fun calculateBitrate(size: Long) {
-    bitrate += size
-    val timeDiff = TimeUtils.getCurrentTimeMillis() - timeStamp
-    if (timeDiff >= 1000) {
-      onMainThread {
-        connectChecker.onNewBitrate((bitrate / (timeDiff / 1000f)).toLong())
-      }
-      timeStamp = TimeUtils.getCurrentTimeMillis()
-      bitrate = 0
+    private val measureInterval = 3
+    private val previousQueueBytesOut: MutableList<Long> = mutableListOf()
+
+
+    fun queueBytes(size: Long) {
+        queuedBytes += size
     }
-  }
+
+    fun start() {
+        queuedBytes = 0
+        previousQueueBytesOut.clear()
+    }
+
+    suspend fun calculateBandwidth(size: Long, myQueueValue: Long) {
+        byterate += size
+        queuedBytes -= size
+        val timeDiff = TimeUtils.getCurrentTimeMillis() - timeStamp
+        if (timeDiff >= 1000) {
+            var throughput: Throughput = Throughput.Unknown
+            previousQueueBytesOut.add(queuedBytes)
+            if (measureInterval <= previousQueueBytesOut.size) {
+                var countQueuedBytesGrowing = 0
+                for (i in 0 until previousQueueBytesOut.size - 1) {
+                    if (previousQueueBytesOut[i] < previousQueueBytesOut[i + 1]) {
+                        countQueuedBytesGrowing++
+                    }
+                }
+                if (countQueuedBytesGrowing == measureInterval - 1) {
+                    throughput = Throughput.Insufficient
+                } else if (countQueuedBytesGrowing == 0) {
+                    throughput = Throughput.Sufficient
+                }
+                previousQueueBytesOut.removeFirst()
+            }
+            onMainThread {
+                connectChecker.onStreamingStats(
+                    ((byterate * 8) / (timeDiff / 1000f)).toLong(),
+                    byterate,
+                    myQueueValue,
+                    throughput
+                )
+            }
+            timeStamp = TimeUtils.getCurrentTimeMillis()
+            byterate = 0
+        }
+    }
 }

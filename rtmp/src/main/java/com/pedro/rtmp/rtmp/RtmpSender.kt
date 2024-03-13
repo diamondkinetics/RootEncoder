@@ -51,212 +51,224 @@ import java.util.concurrent.TimeUnit
  * Created by pedro on 8/04/21.
  */
 class RtmpSender(
-  private val connectChecker: ConnectChecker,
-  private val commandsManager: CommandsManager
+    private val connectChecker: ConnectChecker,
+    private val commandsManager: CommandsManager
 ) {
 
-  private var audioPacket: BasePacket = AacPacket()
-  private var videoPacket: BasePacket = H264Packet()
-  @Volatile
-  private var running = false
-  private var cacheSize = 200
+    private var audioPacket: BasePacket = AacPacket()
+    private var videoPacket: BasePacket = H264Packet()
 
-  private var job: Job? = null
-  private val scope = CoroutineScope(Dispatchers.IO)
-  @Volatile
-  private var queue: BlockingQueue<FlvPacket> = LinkedBlockingQueue(cacheSize)
-  private var audioFramesSent: Long = 0
-  private var videoFramesSent: Long = 0
-  var socket: RtmpSocket? = null
-  var droppedAudioFrames: Long = 0
-    private set
-  var droppedVideoFrames: Long = 0
-    private set
-  private val bitrateManager: BitrateManager = BitrateManager(connectChecker)
-  private var isEnableLogs = true
+    @Volatile
+    private var running = false
+    private var cacheSize = 200
 
-  companion object {
-    private const val TAG = "RtmpSender"
-  }
+    private var job: Job? = null
+    private val scope = CoroutineScope(Dispatchers.IO)
 
-  fun setVideoInfo(sps: ByteBuffer, pps: ByteBuffer?, vps: ByteBuffer?) {
-    when (commandsManager.videoCodec) {
-      VideoCodec.H265 -> {
-        if (vps == null || pps == null) throw IllegalArgumentException("pps or vps can't be null with h265")
-        videoPacket = H265Packet()
-        (videoPacket as H265Packet).sendVideoInfo(sps, pps, vps)
-      }
-      VideoCodec.AV1 -> {
-        videoPacket = Av1Packet()
-        (videoPacket as Av1Packet).sendVideoInfo(sps)
-      }
-      else -> {
-        if (pps == null) throw IllegalArgumentException("pps can't be null with h264")
-        videoPacket = H264Packet()
-        (videoPacket as H264Packet).sendVideoInfo(sps, pps)
-      }
+    @Volatile
+    private var queue: BlockingQueue<FlvPacket> = LinkedBlockingQueue(cacheSize)
+    private var audioFramesSent: Long = 0
+    private var videoFramesSent: Long = 0
+    var socket: RtmpSocket? = null
+    var droppedAudioFrames: Long = 0
+        private set
+    var droppedVideoFrames: Long = 0
+        private set
+    private val bitrateManager: BitrateManager = BitrateManager(connectChecker)
+    private var isEnableLogs = true
+
+    companion object {
+        private const val TAG = "RtmpSender"
     }
-  }
 
-  fun setAudioInfo(sampleRate: Int, isStereo: Boolean) {
-    when (commandsManager.audioCodec) {
-      AudioCodec.G711 -> {
-        audioPacket = G711Packet()
-        (audioPacket as G711Packet).sendAudioInfo()
-      }
-      AudioCodec.AAC -> {
-        audioPacket = AacPacket()
-        (audioPacket as AacPacket).sendAudioInfo(sampleRate, isStereo)
-      }
-      AudioCodec.OPUS -> {
-        throw IllegalArgumentException("Unsupported codec: ${commandsManager.audioCodec.name}")
-      }
-    }
-  }
-
-  fun sendVideoFrame(h264Buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
-    if (running) {
-      videoPacket.createFlvPacket(h264Buffer, info) { flvPacket ->
-        val result = queue.trySend(flvPacket)
-        if (!result) {
-          Log.i(TAG, "Video frame discarded")
-          droppedVideoFrames++
-        }
-      }
-    }
-  }
-
-  fun sendAudioFrame(aacBuffer: ByteBuffer, info: MediaCodec.BufferInfo) {
-    if (running) {
-      audioPacket.createFlvPacket(aacBuffer, info) { flvPacket ->
-        val result = queue.trySend(flvPacket)
-        if (!result) {
-          Log.i(TAG, "Audio frame discarded")
-          droppedAudioFrames++
-        }
-      }
-    }
-  }
-
-  fun start() {
-    queue.clear()
-    running = true
-    job = scope.launch {
-      var bytesSend = 0L
-      val bitrateTask = async {
-        while (scope.isActive && running) {
-          //bytes to bits
-          bitrateManager.calculateBitrate(bytesSend * 8)
-          bytesSend = 0
-          delay(timeMillis = 1000)
-        }
-      }
-      while (scope.isActive && running) {
-        val error = runCatching {
-          val flvPacket = runInterruptible {
-            queue.poll(1, TimeUnit.SECONDS)
-          }
-          if (flvPacket == null) {
-            Log.i(TAG, "Skipping iteration, frame null")
-          } else {
-            var size = 0
-            if (flvPacket.type == FlvType.VIDEO) {
-              videoFramesSent++
-              socket?.let { socket ->
-                size = commandsManager.sendVideoPacket(flvPacket, socket)
-                if (isEnableLogs) {
-                  Log.i(TAG, "wrote Video packet, size $size")
-                }
-              }
-            } else {
-              audioFramesSent++
-              socket?.let { socket ->
-                size = commandsManager.sendAudioPacket(flvPacket, socket)
-                if (isEnableLogs) {
-                  Log.i(TAG, "wrote Audio packet, size $size")
-                }
-              }
+    fun setVideoInfo(sps: ByteBuffer, pps: ByteBuffer?, vps: ByteBuffer?) {
+        when (commandsManager.videoCodec) {
+            VideoCodec.H265 -> {
+                if (vps == null || pps == null) throw IllegalArgumentException("pps or vps can't be null with h265")
+                videoPacket = H265Packet()
+                (videoPacket as H265Packet).sendVideoInfo(sps, pps, vps)
             }
-            bytesSend += size
-          }
-        }.exceptionOrNull()
-        if (error != null) {
-          onMainThread {
-            connectChecker.onConnectionFailed("Error send packet, " + error.message)
-          }
-          Log.e(TAG, "send error: ", error)
-          return@launch
+
+            VideoCodec.AV1 -> {
+                videoPacket = Av1Packet()
+                (videoPacket as Av1Packet).sendVideoInfo(sps)
+            }
+
+            else -> {
+                if (pps == null) throw IllegalArgumentException("pps can't be null with h264")
+                videoPacket = H264Packet()
+                (videoPacket as H264Packet).sendVideoInfo(sps, pps)
+            }
         }
-      }
     }
-  }
 
-  suspend fun stop(clear: Boolean = true) {
-    running = false
-    audioPacket.reset(clear)
-    videoPacket.reset(clear)
-    resetSentAudioFrames()
-    resetSentVideoFrames()
-    resetDroppedAudioFrames()
-    resetDroppedVideoFrames()
-    job?.cancelAndJoin()
-    job = null
-    queue.clear()
-  }
+    fun setAudioInfo(sampleRate: Int, isStereo: Boolean) {
+        when (commandsManager.audioCodec) {
+            AudioCodec.G711 -> {
+                audioPacket = G711Packet()
+                (audioPacket as G711Packet).sendAudioInfo()
+            }
 
-  @Throws(IllegalArgumentException::class)
-  fun hasCongestion(percentUsed: Float = 20f): Boolean {
-    if (percentUsed < 0 || percentUsed > 100) throw IllegalArgumentException("the value must be in range 0 to 100")
-    val size = queue.size.toFloat()
-    val remaining = queue.remainingCapacity().toFloat()
-    val capacity = size + remaining
-    return size >= capacity * (percentUsed / 100f)
-  }
+            AudioCodec.AAC -> {
+                audioPacket = AacPacket()
+                (audioPacket as AacPacket).sendAudioInfo(sampleRate, isStereo)
+            }
 
-  fun resizeCache(newSize: Int) {
-    if (newSize < queue.size - queue.remainingCapacity()) {
-      throw RuntimeException("Can't fit current cache inside new cache size")
+            AudioCodec.OPUS -> {
+                throw IllegalArgumentException("Unsupported codec: ${commandsManager.audioCodec.name}")
+            }
+        }
     }
-    val tempQueue: BlockingQueue<FlvPacket> = LinkedBlockingQueue(newSize)
-    queue.drainTo(tempQueue)
-    queue = tempQueue
-  }
 
-  fun getCacheSize(): Int {
-    return cacheSize
-  }
+    fun sendVideoFrame(h264Buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
+        if (running) {
+            videoPacket.createFlvPacket(h264Buffer, info) { flvPacket ->
+                val result = queue.trySend(flvPacket)
+                if (!result) {
+                    Log.i(TAG, "Video frame discarded")
+                    droppedVideoFrames++
+                } else {
+                    bitrateManager.queueBytes(flvPacket.length.toLong())
+                }
+            }
+        }
+    }
 
-  fun getItemsInCache(): Int = queue.size
+    fun sendAudioFrame(aacBuffer: ByteBuffer, info: MediaCodec.BufferInfo) {
+        if (running) {
+            audioPacket.createFlvPacket(aacBuffer, info) { flvPacket ->
+                val result = queue.trySend(flvPacket)
+                if (!result) {
+                    Log.i(TAG, "Audio frame discarded")
+                    droppedAudioFrames++
+                } else {
+                    bitrateManager.queueBytes(flvPacket.length.toLong())
+                }
+            }
+        }
+    }
 
-  fun clearCache() {
-    queue.clear()
-  }
+    fun start() {
+        queue.clear()
+        bitrateManager.start()
+        running = true
+        job = scope.launch {
+            var bytesSend = 0L
+            val bitrateTask = async {
+                while (scope.isActive && running) {
+                    var myQueueValue: Long = queue.sumOf { it.length.toLong() }
+                    //bytes to bits
+                    bitrateManager.calculateBandwidth(bytesSend, myQueueValue)
+                    bytesSend = 0
+                    delay(timeMillis = 1000)
+                }
+            }
+            while (scope.isActive && running) {
+                val error = runCatching {
+                    val flvPacket = runInterruptible {
+                        queue.poll(1, TimeUnit.SECONDS)
+                    }
+                    if (flvPacket == null) {
+                        Log.i(TAG, "Skipping iteration, frame null")
+                    } else {
+                        var size = 0
+                        if (flvPacket.type == FlvType.VIDEO) {
+                            videoFramesSent++
+                            socket?.let { socket ->
+                                size = commandsManager.sendVideoPacket(flvPacket, socket)
+                                if (isEnableLogs) {
+                                    Log.i(TAG, "wrote Video packet, size $size")
+                                }
+                            }
+                        } else {
+                            audioFramesSent++
+                            socket?.let { socket ->
+                                size = commandsManager.sendAudioPacket(flvPacket, socket)
+                                if (isEnableLogs) {
+                                    Log.i(TAG, "wrote Audio packet, size $size")
+                                }
+                            }
+                        }
+                        bytesSend += size
+                    }
+                }.exceptionOrNull()
+                if (error != null) {
+                    onMainThread {
+                        connectChecker.onConnectionFailed("Error send packet, " + error.message)
+                    }
+                    Log.e(TAG, "send error: ", error)
+                    return@launch
+                }
+            }
+        }
+    }
 
-  fun getSentAudioFrames(): Long {
-    return audioFramesSent
-  }
+    suspend fun stop(clear: Boolean = true) {
+        running = false
+        audioPacket.reset(clear)
+        videoPacket.reset(clear)
+        resetSentAudioFrames()
+        resetSentVideoFrames()
+        resetDroppedAudioFrames()
+        resetDroppedVideoFrames()
+        job?.cancelAndJoin()
+        job = null
+        queue.clear()
+    }
 
-  fun getSentVideoFrames(): Long {
-    return videoFramesSent
-  }
+    @Throws(IllegalArgumentException::class)
+    fun hasCongestion(percentUsed: Float = 20f): Boolean {
+        if (percentUsed < 0 || percentUsed > 100) throw IllegalArgumentException("the value must be in range 0 to 100")
+        val size = queue.size.toFloat()
+        val remaining = queue.remainingCapacity().toFloat()
+        val capacity = size + remaining
+        return size >= capacity * (percentUsed / 100f)
+    }
 
-  fun resetSentAudioFrames() {
-    audioFramesSent = 0
-  }
+    fun resizeCache(newSize: Int) {
+        if (newSize < queue.size - queue.remainingCapacity()) {
+            throw RuntimeException("Can't fit current cache inside new cache size")
+        }
+        val tempQueue: BlockingQueue<FlvPacket> = LinkedBlockingQueue(newSize)
+        queue.drainTo(tempQueue)
+        queue = tempQueue
+    }
 
-  fun resetSentVideoFrames() {
-    videoFramesSent = 0
-  }
+    fun getCacheSize(): Int {
+        return cacheSize
+    }
 
-  fun resetDroppedAudioFrames() {
-    droppedAudioFrames = 0
-  }
+    fun getItemsInCache(): Int = queue.size
 
-  fun resetDroppedVideoFrames() {
-    droppedVideoFrames = 0
-  }
+    fun clearCache() {
+        queue.clear()
+    }
 
-  fun setLogs(enable: Boolean) {
-    isEnableLogs = enable
-  }
+    fun getSentAudioFrames(): Long {
+        return audioFramesSent
+    }
+
+    fun getSentVideoFrames(): Long {
+        return videoFramesSent
+    }
+
+    fun resetSentAudioFrames() {
+        audioFramesSent = 0
+    }
+
+    fun resetSentVideoFrames() {
+        videoFramesSent = 0
+    }
+
+    fun resetDroppedAudioFrames() {
+        droppedAudioFrames = 0
+    }
+
+    fun resetDroppedVideoFrames() {
+        droppedVideoFrames = 0
+    }
+
+    fun setLogs(enable: Boolean) {
+        isEnableLogs = enable
+    }
 }
