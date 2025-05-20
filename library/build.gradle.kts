@@ -3,6 +3,8 @@ plugins {
   alias(libs.plugins.jetbrains.kotlin)
   alias(libs.plugins.jetbrains.dokka)
   `maven-publish`
+
+  id("convention.publishing")
 }
 
 android {
@@ -30,21 +32,13 @@ android {
   }
 }
 
-afterEvaluate {
-  publishing {
-    publications {
-      // Creates a Maven publication called "release".
-      create<MavenPublication>("release") {
-        // Applies the component for the release build variant.
-        from(components["release"])
-
-        // You can then customize attributes of the publication as shown below.
-        groupId = project.group.toString()
-        artifactId = project.name
-        version = project.version.toString()
-      }
-    }
-  }
+publishingConfig {
+  groupId = group.toString()
+  artifactId = "library"
+  domain = "diamond-kinetics"
+  domainOwner = "626803233223"
+  repository = "dk-maven"
+  region = "us-east-1"
 }
 
 dependencies {

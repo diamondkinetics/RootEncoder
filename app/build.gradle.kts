@@ -11,8 +11,6 @@ android {
     applicationId = "com.pedro.streamer"
     minSdk = 16
     targetSdk = 36
-    versionCode = project.version.toString().replace(".", "").toInt()
-    versionName = project.version.toString()
     multiDexEnabled = true
   }
   buildTypes {
