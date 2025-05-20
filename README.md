@@ -171,3 +171,28 @@ https://github.com/pedroSG94/RootEncoder/tree/master/app/src/main/java/com/pedro
 
 Code example for low API devices (Android API 16+):
 https://github.com/pedroSG94/RootEncoder/tree/master/app/src/main/java/com/pedro/streamer/oldapi
+
+## DK Release and Deploy
+
+We use the [axion-release-plugin](https://axion-release-plugin.readthedocs.io/en/latest/) to help with versioning and releases.
+
+Basic workflow with axion-release:
+```
+$ ./gradlew currentVersion
+0.1.0
+
+$ git commit -m "Some commit."
+
+$ ./gradlew currentVersion
+0.1.1-SNAPSHOT
+
+// Create a new tag and push it to remote
+$ ./gradlew release
+
+$ git tag
+project-0.1.0
+project-0.1.1
+
+// Upload release to dk-maven
+$ ./gradlew publish
+```
