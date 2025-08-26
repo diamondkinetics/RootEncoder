@@ -30,6 +30,63 @@ open class BitrateManager(private val bitrateChecker: BitrateChecker) {
   var exponentialFactor: Float = 1f
   private var timeStamp = TimeUtils.getCurrentTimeMillis()
 
+  private var byterate = 0L
+  private var queuedBytes: Long = 0
+  private val measureInterval = 3
+  private val previousQueueBytesOut: MutableList<Long> = mutableListOf()
+
+  fun queueBytes(size: Long) {
+    queuedBytes += size
+  }
+
+  suspend fun calculateBitrateAndBandwidth(bytesSendPerSecond: Long, myQueueValue: Long) {
+    // Track bitrate and queue management
+    bitrate += (bytesSendPerSecond * 8)
+    byterate += bytesSendPerSecond
+    queuedBytes -= bytesSendPerSecond
+    
+    val timeDiff = TimeUtils.getCurrentTimeMillis() - timeStamp
+    if (timeDiff >= 1000) {
+      // Calculate bitrate with exponential moving average
+      val currentValue = (bitrate / (timeDiff / 1000f)).toLong()
+      if (bitrateOld == 0L) { bitrateOld = currentValue }
+      bitrateOld = (bitrateOld + exponentialFactor * (currentValue - bitrateOld)).toLong()
+
+      // Calculate bandwidth and throughput analysis
+      var throughput: Throughput = Throughput.Unknown
+      previousQueueBytesOut.add(queuedBytes)
+      if (measureInterval <= previousQueueBytesOut.size) {
+        var countQueuedBytesGrowing = 0
+        for (i in 0 until previousQueueBytesOut.size - 1) {
+          if (previousQueueBytesOut[i] < previousQueueBytesOut[i + 1]) {
+            countQueuedBytesGrowing++
+          }
+        }
+        if (countQueuedBytesGrowing == measureInterval - 1) {
+          throughput = Throughput.Insufficient
+        } else if (countQueuedBytesGrowing == 0) {
+          throughput = Throughput.Sufficient
+        }
+        previousQueueBytesOut.removeAt(0)
+      }
+
+      // Call both callbacks on main thread
+      onMainThread {
+        bitrateChecker.onNewBitrate(bitrateOld)
+        bitrateChecker.onStreamingStats(
+          ((bytesSendPerSecond * 8) / (timeDiff / 1000f)).toLong(),
+          bytesSendPerSecond,
+          myQueueValue,
+          throughput
+        )
+      }
+
+      // Reset all counters
+      timeStamp = TimeUtils.getCurrentTimeMillis()
+      bitrate = 0
+    }
+  }
+
   suspend fun calculateBitrate(size: Long) {
     bitrate += size
     val timeDiff = TimeUtils.getCurrentTimeMillis() - timeStamp
@@ -44,7 +101,9 @@ open class BitrateManager(private val bitrateChecker: BitrateChecker) {
   }
 
   fun reset() {
-    bitrate = 0
+    byterate = 0
     bitrateOld = 0
+    queuedBytes = 0
+    previousQueueBytesOut.clear()
   }
 }

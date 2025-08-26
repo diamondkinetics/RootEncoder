@@ -20,6 +20,7 @@ import com.pedro.common.util.MainDispatcherRule
 import com.pedro.common.util.Utils
 import kotlinx.coroutines.test.runTest
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -74,6 +75,58 @@ class BitrateManagerTest {
       verify(connectChecker, times(1)).onNewBitrate(resultValue.capture())
       val marginError = 20
       assertTrue(expectedResult - marginError <= resultValue.firstValue && resultValue.firstValue <= expectedResult + marginError)
+    }
+  }
+
+  @Test
+  fun `WHEN calculateBitrateAndBandwidth called multiple times THEN return total bitrate and bandwidth stats`() = runTest {
+    Utils.useStatics(listOf(timeUtilsMocked)) {
+      val bitrateManager = BitrateManager(connectChecker)
+      val fakeValues = arrayOf(100L, 200L, 300L, 400L, 500L)
+      val queueValues = arrayOf(50L, 100L, 150L, 200L, 250L)
+      var expectedBitrate = 0L
+      
+      // Call calculateBitrateAndBandwidth multiple times within the same second
+      fakeValues.forEachIndexed { index, value ->
+        bitrateManager.calculateBitrateAndBandwidth(value, queueValues[index])
+        expectedBitrate += (value * 8) // Convert bytes to bits
+      }
+      
+      // Advance time by 1 second to trigger the calculation
+      fakeTime += 1000
+      
+      // Call one more time to trigger the final calculation
+      val finalValue = 100L
+      val finalQueueValue = 300L
+      bitrateManager.calculateBitrateAndBandwidth(finalValue, finalQueueValue)
+      expectedBitrate += (finalValue * 8)
+      
+      // Verify onNewBitrate was called
+      val bitrateCaptor = argumentCaptor<Long>()
+      verify(connectChecker, times(1)).onNewBitrate(bitrateCaptor.capture())
+      
+      // Verify onStreamingStats was called
+      val bitrateStatsCaptor = argumentCaptor<Long>()
+      val bytesSentCaptor = argumentCaptor<Long>()
+      val bytesQueuedCaptor = argumentCaptor<Long>()
+      val throughputCaptor = argumentCaptor<Throughput>()
+      
+      verify(connectChecker, times(1)).onStreamingStats(
+        bitrateStatsCaptor.capture(),
+        bytesSentCaptor.capture(),
+        bytesQueuedCaptor.capture(),
+        throughputCaptor.capture()
+      )
+      
+      // Check bitrate calculation (with margin for exponential moving average)
+      val marginError = 100
+      assertTrue(expectedBitrate - marginError <= bitrateCaptor.firstValue && bitrateCaptor.firstValue <= expectedBitrate + marginError)
+      
+      // Check streaming stats
+      assertTrue(bitrateStatsCaptor.firstValue > 0)
+      assertTrue(bytesSentCaptor.firstValue > 0)
+      assertEquals(finalQueueValue, bytesQueuedCaptor.firstValue)
+      assertEquals(Throughput.Unknown, throughputCaptor.firstValue) // Should be Unknown for first measurement
     }
   }
 }

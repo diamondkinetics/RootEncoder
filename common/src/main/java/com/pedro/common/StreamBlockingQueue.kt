@@ -59,4 +59,20 @@ class StreamBlockingQueue(size: Int) {
     }
 
     fun getSize() = queue.size
+
+
+    /**
+     * Gets the total size of all items in the queue by summing the individual sizes.
+     *
+     * This method calculates the cumulative size of all [MediaFrame] objects currently
+     * in the queue by summing their [MediaFrame.info.size] values. This is useful for
+     * monitoring memory usage, bandwidth calculations, or determining the total data
+     * volume in the queue.
+     *
+     * @return The total size in bytes as a [Long] value, representing the sum of all
+     *         individual frame sizes in the queue.
+     *
+     * @see getSize for getting the count of items in the queue
+     */
+    fun getTotalSize(): Long = queue.sumOf { it.info.size.toLong() }
 }

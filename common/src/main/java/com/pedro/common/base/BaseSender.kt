@@ -47,16 +47,21 @@ abstract class BaseSender(
     protected abstract suspend fun stopImp(clear: Boolean = true)
 
     fun sendMediaFrame(mediaFrame: MediaFrame) {
-        if (running && !queue.trySend(mediaFrame)) {
-            when (mediaFrame.type) {
-                MediaFrame.Type.VIDEO -> {
-                    Log.i(TAG, "Video frame discarded")
-                    droppedVideoFrames++
+        if (running){
+            if(!queue.trySend(mediaFrame)) {
+                when (mediaFrame.type) {
+                    MediaFrame.Type.VIDEO -> {
+                        Log.i(TAG, "Video frame discarded")
+                        droppedVideoFrames++
+                    }
+
+                    MediaFrame.Type.AUDIO -> {
+                        Log.i(TAG, "Audio frame discarded")
+                        droppedAudioFrames++
+                    }
                 }
-                MediaFrame.Type.AUDIO -> {
-                    Log.i(TAG, "Audio frame discarded")
-                    droppedAudioFrames++
-                }
+            } else {
+                bitrateManager.queueBytes(mediaFrame.info.size.toLong())
             }
         }
     }
@@ -68,8 +73,7 @@ abstract class BaseSender(
         job = scope.launch {
             val bitrateTask = async {
                 while (scope.isActive && running) {
-                    //bytes to bits
-                    bitrateManager.calculateBitrate(bytesSendPerSecond * 8)
+                    bitrateManager.calculateBitrateAndBandwidth(bytesSendPerSecond, queue.getTotalSize())
                     bytesSendPerSecond = 0
                     delay(timeMillis = 1000)
                 }

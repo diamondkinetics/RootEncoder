@@ -21,4 +21,6 @@ package com.pedro.common;
  */
 public interface BitrateChecker {
   default void onNewBitrate(long bitrate) {}
+
+  default void onStreamingStats(long bitrate, long bytesSent, long bytesQueued, Throughput throughput) {}
 }
