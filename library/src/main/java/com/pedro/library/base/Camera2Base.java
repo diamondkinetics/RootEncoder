@@ -272,6 +272,10 @@ public abstract class Camera2Base {
         return cameraManager.getCurrentCameraId();
     }
 
+    public String getCameraIdForFacing(CameraHelper.Facing facing) {
+        return cameraManager.getCameraIdForFacing(facing);
+    }
+
     public boolean resetVideoEncoder() {
         if (differentRecordResolution) {
             glInterface.removeMediaCodecRecordSurface();
