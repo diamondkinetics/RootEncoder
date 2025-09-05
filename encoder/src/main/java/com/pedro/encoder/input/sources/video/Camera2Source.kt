@@ -273,4 +273,8 @@ class Camera2Source(context: Context): VideoSource() {
   fun lockExposure(enabled: Boolean) = camera.lockExposure(enabled)
 
   fun isLockExposureEnabled() = camera.isLockExposureEnabled()
+
+  fun lockWhiteBalance(enabled: Boolean) = camera.lockWhiteBalance(enabled)
+
+  fun isLockWhiteBalanceEnabled() = camera.isLockWhiteBalanceEnabled()
 }

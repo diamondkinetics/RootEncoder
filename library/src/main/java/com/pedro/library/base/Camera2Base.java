@@ -986,6 +986,25 @@ public abstract class Camera2Base {
         return cameraManager.isLockExposureEnabled();
     }
 
+    /**
+     * Lock or unlock white balance
+     *
+     * @param enabled true to lock white balance, false to unlock
+     * @return true if successful, false otherwise
+     */
+    public boolean lockWhiteBalance(boolean enabled) {
+        return cameraManager.lockWhiteBalance(enabled);
+    }
+
+    /**
+     * Check if white balance is locked
+     *
+     * @return true if white balance is locked, false otherwise
+     */
+    public boolean isLockWhiteBalanceEnabled() {
+        return cameraManager.isLockWhiteBalanceEnabled();
+    }
+
     public GlInterface getGlInterface() {
         return glInterface;
     }
