@@ -310,9 +310,9 @@ public abstract class Camera2Base {
      * doesn't support any configuration seated or your device hasn't a H264 encoder).
      */
     public boolean prepareVideo(
-        int width, int height, int fps, int bitrate, int iFrameInterval,
-        int rotation, int profile, int level,
-        int recordWidth, int recordHeight, int recordBitrate
+            int width, int height, int fps, int bitrate, int iFrameInterval,
+            int rotation, int profile, int level,
+            int recordWidth, int recordHeight, int recordBitrate
     ) {
         if (onPreview && (width != previewWidth || height != previewHeight
                 || fps != videoEncoder.getFps() || rotation != videoEncoder.getRotation())) {
@@ -328,7 +328,7 @@ public abstract class Camera2Base {
         }
         if (differentRecordResolution) {
             boolean result = videoEncoderRecord.prepareVideoEncoder(recordWidth, recordHeight, fps, recordBitrate, rotation,
-                iFrameInterval, FormatVideoEncoder.SURFACE, profile, level);
+                    iFrameInterval, FormatVideoEncoder.SURFACE, profile, level);
             if (!result) return false;
         }
         return videoEncoder.prepareVideoEncoder(width, height, fps, bitrate, rotation,
@@ -336,8 +336,8 @@ public abstract class Camera2Base {
     }
 
     public boolean prepareVideo(
-        int width, int height, int fps, int bitrate, int iFrameInterval,
-        int rotation, int profile, int level
+            int width, int height, int fps, int bitrate, int iFrameInterval,
+            int rotation, int profile, int level
     ) {
         return prepareVideo(width, height, fps, bitrate, iFrameInterval, rotation, profile, level, width, height, bitrate);
     }
@@ -966,6 +966,27 @@ public abstract class Camera2Base {
         return cameraManager.tapToFocus(view, event);
     }
 
+    /**
+     * Tap to set white balance metering region at a specific point
+     *
+     * @param view The view where the touch event occurred
+     * @param event The touch event containing coordinates
+     * @return true if successful, false otherwise
+     */
+    public boolean tapToSetWhiteBalance(View view, MotionEvent event) {
+        return cameraManager.tapToSetWhiteBalance(view, event);
+    }
+
+    /**
+     * Tap to set exposure metering region at a specific point
+     *
+     * @param view The view where the touch event occurred
+     * @param event The touch event containing coordinates
+     * @return true if successful, false otherwise
+     */
+    public boolean tapToSetExposure(View view, MotionEvent event) {
+        return cameraManager.tapToSetExposure(view, event);
+    }
 
     /**
      * Lock or unlock exposure

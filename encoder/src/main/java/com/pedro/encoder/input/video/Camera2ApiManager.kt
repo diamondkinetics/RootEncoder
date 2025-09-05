@@ -536,6 +536,86 @@ class Camera2ApiManager(context: Context) : CameraDevice.StateCallback() {
     }
 
     /**
+     * Tap to set white balance metering region at a specific point
+     *
+     * @param view The view where the touch event occurred
+     * @param event The touch event containing coordinates
+     * @return true if successful, false otherwise
+     */
+    fun tapToSetWhiteBalance(view: View, event: MotionEvent): Boolean {
+        val builderInputSurface = this.builderInputSurface ?: return false
+        val characteristics = cameraCharacteristics ?: return false
+        val session = cameraCaptureSession ?: return false
+
+        // Check if AWB regions are supported
+        if (characteristics.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AWB) == 0) return false
+
+        val sensorArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE) ?: return false
+        val x = event.x
+        val y = event.y
+        val regionX = (x / view.width.toFloat()) * sensorArraySize.width()
+        val regionY = (y / view.height.toFloat()) * sensorArraySize.height()
+
+        val awbRect = MeteringRectangle(
+            (regionX - 100).toInt().coerceIn(0, sensorArraySize.width()),
+            (regionY - 100).toInt().coerceIn(0, sensorArraySize.height()),
+            (100 * 2).coerceIn(0, sensorArraySize.width()),
+            (100 * 2).coerceIn(0, sensorArraySize.height()),
+            MeteringRectangle.METERING_WEIGHT_MAX
+        )
+
+        try {
+            builderInputSurface.set(CaptureRequest.CONTROL_AWB_REGIONS, arrayOf(awbRect))
+            builderInputSurface.set(CaptureRequest.CONTROL_AWB_MODE, CameraMetadata.CONTROL_AWB_MODE_AUTO)
+            isAutoWhiteBalanceEnabled = applyRequest(builderInputSurface)
+            return isAutoWhiteBalanceEnabled
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting AWB region", e)
+            return false
+        }
+    }
+
+    /**
+     * Tap to set exposure metering region at a specific point
+     *
+     * @param view The view where the touch event occurred
+     * @param event The touch event containing coordinates
+     * @return true if successful, false otherwise
+     */
+    fun tapToSetExposure(view: View, event: MotionEvent): Boolean {
+        val builderInputSurface = this.builderInputSurface ?: return false
+        val characteristics = cameraCharacteristics ?: return false
+        val session = cameraCaptureSession ?: return false
+
+        // Check if AE regions are supported
+        if (characteristics.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE) == 0) return false
+
+        val sensorArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE) ?: return false
+        val x = event.x
+        val y = event.y
+        val regionX = (x / view.width.toFloat()) * sensorArraySize.width()
+        val regionY = (y / view.height.toFloat()) * sensorArraySize.height()
+
+        val aeRect = MeteringRectangle(
+            (regionX - 100).toInt().coerceIn(0, sensorArraySize.width()),
+            (regionY - 100).toInt().coerceIn(0, sensorArraySize.height()),
+            (100 * 2).coerceIn(0, sensorArraySize.width()),
+            (100 * 2).coerceIn(0, sensorArraySize.height()),
+            MeteringRectangle.METERING_WEIGHT_MAX
+        )
+
+        try {
+            builderInputSurface.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(aeRect))
+            builderInputSurface.set(CaptureRequest.CONTROL_AE_MODE, CameraMetadata.CONTROL_AE_MODE_ON)
+            isAutoExposureEnabled = applyRequest(builderInputSurface)
+            return isAutoExposureEnabled
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting AE region", e)
+            return false
+        }
+    }
+
+    /**
      * Select camera facing
      *
      * @param selectedCameraFacing - CameraCharacteristics.LENS_FACING_FRONT,
