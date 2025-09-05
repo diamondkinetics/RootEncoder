@@ -966,6 +966,26 @@ public abstract class Camera2Base {
         return cameraManager.tapToFocus(view, event);
     }
 
+
+    /**
+     * Lock or unlock exposure
+     *
+     * @param enabled true to lock exposure, false to unlock
+     * @return true if successful, false otherwise
+     */
+    public boolean lockExposure(boolean enabled) {
+        return cameraManager.lockExposure(enabled);
+    }
+
+    /**
+     * Check if exposure is locked
+     *
+     * @return true if exposure is locked, false otherwise
+     */
+    public boolean isLockExposureEnabled() {
+        return cameraManager.isLockExposureEnabled();
+    }
+
     public GlInterface getGlInterface() {
         return glInterface;
     }
